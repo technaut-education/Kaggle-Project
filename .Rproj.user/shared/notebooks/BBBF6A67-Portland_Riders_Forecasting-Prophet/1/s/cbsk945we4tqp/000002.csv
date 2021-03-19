@@ -1,0 +1,6 @@
+"0","riders_monthly_tbl %>% "
+"0","  plot_time_series("
+"0","    .date_var = Month,"
+"0","    .value = N_riders,"
+"0","    .interactive = FALSE"
+"0","  )"

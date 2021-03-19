@@ -1,0 +1,36 @@
+"0","prophet_model_recursive <- prophet_reg() %>% "
+"0","  set_engine(""prophet"") %>% "
+"0","  fit("
+"0","    n_riders ~ .,"
+"0","    data = train"
+"0","  ) "
+"2","Disabling weekly seasonality. Run prophet with weekly.seasonality=TRUE to override this.
+"
+"2","Disabling daily seasonality. Run prophet with daily.seasonality=TRUE to override this.
+"
+"0","prophet_model_recursive"
+"1","parsnip model object
+
+"
+"1","Fit time: "
+"1"," "
+"1","331ms"
+"1"," "
+"1","
+"
+"1","PROPHET w/ Regressors Model
+- growth: 'linear'
+- n.changepoints: 25
+- changepoint.range: 0.8
+- yearly.seasonality: 'auto'
+- weekly.seasonality: 'auto'
+- daily.seasonality: 'auto'
+- seasonality.mode: 'additive'
+- changepoint.prior.scale: 0.05
+- seasonality.prior.scale: 10
+- holidays.prior.scale: 10
+- logistic_cap: NULL
+- logistic_floor: NULL
+- extra_regressors: 1"
+"1","
+"

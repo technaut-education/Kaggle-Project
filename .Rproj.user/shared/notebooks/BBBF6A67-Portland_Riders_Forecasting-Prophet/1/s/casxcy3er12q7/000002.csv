@@ -1,0 +1,9 @@
+"0","data <- read_csv(""data/portland-oregon-average-monthly-.csv"")"
+"2","
+[36m--[39m [1m[1mColumn specification[1m[22m [36m----------------------------------------------[39m
+cols(
+  Month = [31mcol_character()[39m,
+  `Portland Oregon average monthly bus ridership (/100) January 1973 through June 1982, n=114` = [31mcol_character()[39m
+)
+
+"

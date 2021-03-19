@@ -1,0 +1,4 @@
+"0","riders_monthly_tbl %>% "
+"0","  tk_summary_diagnostics("
+"0","    .date_var = Month"
+"0","  )"

@@ -1,0 +1,10 @@
+"0","riders_monthly_tbl %>% "
+"0","  plot_seasonal_diagnostics("
+"0","    .date_var = Month,"
+"0","    .value = N_riders,"
+"0","    .interactive = FALSE,"
+"0","    .nrow = 1"
+"0","  )"
+"2","Error in plot_seasonal_diagnostics(., .date_var = Month, .value = N_riders,  : 
+  unused argument (.nrow = 1)
+"

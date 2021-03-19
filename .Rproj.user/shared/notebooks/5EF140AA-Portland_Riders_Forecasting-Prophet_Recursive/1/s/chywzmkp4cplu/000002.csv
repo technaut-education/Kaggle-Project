@@ -1,0 +1,6 @@
+"0","splits <- riders_monthly_tbl %>% "
+"0","  time_series_split("
+"0","    date_var = date,"
+"0","    assess = ""1 year"","
+"0","    cumulative = TRUE"
+"0","  )"

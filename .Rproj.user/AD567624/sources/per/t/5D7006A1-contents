@@ -1,0 +1,295 @@
+---
+title: Analisis Pengguna Sepeda Portland Oregon menggunakan Facebook Prophet - Part
+  1
+author: "Moh. Rosidi"
+date: "13/3/2021"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pendahuluan
+
+Pada tutorial ini kita akan belajar melakukan forecasting pada data pengguna sepeda bulanan di Portland Oregon. Pembaca akan belajar sejumlah tahapan dalam melakukan forecasting, antara lain:
+
+1. Analisis data eksploratif
+2. Pemodelan menggunakan Facebook Prophet
+3. Pengujian Model
+
+## Tentang data
+
+Data yang digunakan adalah data perhitungan jumlah pengguna sepeda bulanan Portland yang diambiul dari Portland Public Transportation System. Data yang digunakan merupakan data pengukuran dari Januari 1960 sampai dengan Juni 1969. Data dapat pembaca unduh dari Kaggle melalui tautan berikut: <https://www.kaggle.com/hsankesara/portland-oregon-avg-rider-monthly-data>
+
+
+## Packages yang dibutuhkan
+
+Terdapat beberapa R packages yang dibutuhkan dalam tutorial kali ini. Beberapa packages yang dibutuhkan antara lain:
+
+1. `tidyverse` : meta packages yang berisi fungsi untuk melakukan workflow data science
+2. `tidymodels` : meta packages untuk membuat model prediktif dengan prisip tidy data
+3. `modeltime` : ekstensi `tidymodels` untuk model time series
+4. `timetk` : manipulasi data untuk jenis data berupa tanggal atau waktu
+
+```{r, eval=FALSE}
+# tidak perlu dijalankan jika sudah terinstall
+packages <- c("tidyverse", "tidymodels", "modeltime", "timetk")
+install.packages(packages)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(timetk)
+library(modeltime)
+```
+
+## Membaca data
+
+Untuk membaca data dengan format `.csv`, kita dapat menggunakan fungsi `read_csv` dari packages `readr`.
+
+```{r}
+data <- read_csv("data/portland-oregon-average-monthly-.csv")
+```
+
+Untuk mengecek struktur data seperti jumlah kolom dan baris serta tipe data, kita dapat menggunakan fungsi `glimpse` dari package `dplyr`.
+
+```{r}
+# cek struktur data
+glimpse(data)
+```
+
+Berdasarkan output yang dihasilkan, data memerlukan proses pembersihan. Pembersihan dilakukan dengan 
+
+1. membuang baris terakhir data, 
+2. mengubah jenis data pada masing-masing kolom, dan 
+3. mengubah nama kolom kedua.
+
+```{r}
+riders_monthly_tbl <- data %>% 
+                      # membuang baris terakhir
+                      slice(-nrow(data)) %>% 
+                      
+                      # mengubah nama kolom
+                      rename(N_riders = `Portland Oregon average monthly bus ridership (/100) January 1973 through June 1982, n=114`) %>% 
+                      
+                      # mengubah jenis data
+                      mutate(Month = lubridate::ym(Month),
+                            N_riders = as.integer(N_riders)
+                            )
+```
+
+```{r}
+glimpse(riders_monthly_tbl)
+```
+
+## Analisis data eksploratif
+
+Analisis data eksploratif bertujuan untuk memperoleh gambaran awal terkait data sebelum dilakukan analisis yang lebih kompleks (pengujian statistik, pemodelan, dll). Analisis ini berfokus untuk mengecek
+
+1. skala pengukuran data time series,
+2. missing value pada data atau gap pengukuran dalam data, dan
+3. seasonality pada data
+
+Pembaca dapat mencoba melakukan pengecekan lainnya menggunakan fungsi-fungsi yang tersedia dalam package `timetk`.
+
+### Time series diagnostik
+
+Untuk mengecek skala pengukuran data dan adanya missing value pada data, kita dapat menggunakan fungsi `tk_summary_diagnostics` dari `timetk`.
+
+```{r}
+riders_monthly_tbl %>% 
+  tk_summary_diagnostics(
+    .date_var = Month
+  )
+```
+
+Berdasarkan output yang dihasilkan terdapat indikasi adanya gap pencatatan (potensi missing value) yang ditunjukkan dari nilai selisih waktu (kolom dengan awalan `diff` yang diukur dalam detik) yang tidak seragam nilainya. Untuk memastikkannya kita dapat melakukan proses *padding* (menambah baris pada rentang pengukurang yang tidak seragam) dan mengecek apakah jumlah baris data bertambah (indikasi terdapat missing value). Jika kolom data bertambah, maka nilai baris baru akan diisi oleh `NA` dan proses pengisian missing value perlu dilakukan.
+
+```{r}
+riders_monthly_tbl %>% 
+  pad_by_time(
+    .date_var = Month,
+    .start_date = "1960-01-01"
+  )
+```
+
+Jumlah pengukuran tidak berubah yang menandakan tidak ada missing value. Adanya perbedaan selisih rentang waktu pada proses sebelumnya lebih disebakan karena jumlah hari pada masing-masing bulan yang berbeda.
+
+### Visualisasi data
+
+Untuk melakukan visualisasi data time series, kita dapat menggunakan fungsi `plot_time_series` dari packages `timetk`.
+
+```{r}
+riders_monthly_tbl %>% 
+  plot_time_series(
+    .date_var = Month,
+    .value = N_riders,
+    .interactive = FALSE
+  )
+```
+
+Terdapat kenaikan jumlah pengendara sepeda sepanjang tahun dan pola musiman yang terbentuk pada data, dimana jumlah pengendara sepeda bulanan cenderung menurun pada bulan Agustus ([puncak curah hujan](https://en.wikipedia.org/wiki/Climate_of_Oregon#:~:text=Across%20Oregon%2C%20the%20wet%20season,and%20October%20in%20the%20fall.)).
+
+### Plot musimam
+
+Untuk mengecek pola musimam yang ada pada data, kita dapat menggunakan fungsi `plot_seasonal_diagnostics` dari `timetk`.
+
+```{r}
+riders_monthly_tbl %>% 
+  plot_seasonal_diagnostics(
+    .date_var = Month,
+    .value = N_riders,
+    .interactive = FALSE
+  )
+```
+
+Berdasarkan hasil visualisasi terlihat bahwa pola musiman muncul pada pengukuran bulanan, dimana terdapat pola penurunan pada bulan Maret sampai Agustus dan kembali naik pada bulan setelahnya.
+
+## Pemodelan data dengan Facebook Prophet
+
+Facebook Prophet merupakan model additif yang dikembangkan oleh Facebook. Model ini memodelkan 3 buah hal, yaitu: tren, seasonality, dan holliday. Tren dimodelkan dengan menggunakan *piecewise regression* atau tren logistik (jika terdapat daya tampung dalam sistem). Seasonality dimodelkan dengan menggunakan fourier transform dengan periode harian, bulanan, dan tahunan. Holliday dimodelkan untuk memperoleh selisis perubahan pada hari biasa dan saat hari libur untuk tanggal yang sama.
+
+Kelebihan prophet dibanding model lainnya adalah model ini sangat baik untuk memodelkan data dengan sesonality yang kuat dan dapat menangani missing value pada data karena bukan model sequential yang memanfaatkan fitur time series seperti lag. Kelebihan lainnya dari model ini adalah model ini dapat menerima variabel tambahan (external regressor) untuk membantu proses forecasting pada data.
+
+### Data splitting
+
+Data splitting merupakan proses untuk membagi data menjadi data training dan data test. Proses membagi data pada data time series dilakukan dengan mengambil rentang data awal sampai proporsi tertentu sebagai data training dan rentang data akhirnya sebagai data test. Proporsi yang umum digunakan sebagai data training adalah 70%-80% atau biasanya disesuaikan dengan lama periode forecasting yang dilakukan ke depan (jika forecast dilakukan 1 tahun kedepan minimal data test adalah 1-2 tahun).
+
+```{r}
+splits <- riders_monthly_tbl %>% 
+  time_series_split(
+    date_var = Month,
+    assess = "1 year",
+    cumulative = TRUE
+  )
+```
+
+Untuk memvisualisasikan data hasil splitting, jalankan perintah berikut:
+
+```{r}
+splits %>% 
+  tk_time_series_cv_plan() %>% 
+  plot_time_series_cv_plan(
+    .date_var = Month,
+    .value = N_riders,
+    .interactive = FALSE
+  )
+```
+
+
+### Spesifikasi Model Prophet
+
+Perintah berikut merupakan tahapan untuk membuat model prophet menggunakan `modeltime`.
+
+```{r}
+prophet_model <- prophet_reg() %>% 
+  set_engine("prophet") %>% 
+  fit(N_riders~., 
+      data = training(splits))
+prophet_model
+```
+
+## Pengujian model
+
+Proses kalibrasi model dapat dilakukan menggunakan tahapan perintah berikut:
+
+```{r}
+calibrate <- modeltime_table(
+  prophet_model
+) %>% 
+  modeltime_calibrate(
+    new_data = testing(splits)
+  )
+
+calibrate
+```
+
+Terdapat dua buat tahapan yang dilakukan pada proses tersebut:
+
+1. membuat objek modeltime table menggunakan fungsi `modeltime_table`. Output dari proses ini adalah daftar model yang telah dibuat.
+2. menambahkan data uji pada tabel menggunakan fungsi `modeltime_calibrate`.
+
+Tahapan selanjutnya adalah membuat forecast dan mengecek akurasinya menggunakan fungsi `modeltime_forecast`.
+
+```{r}
+# cek akurasi model
+calibrate %>% 
+  modeltime_accuracy()
+```
+
+Berdasarkan output yang dihasilkan, model yang terbentuk memiliki akurasi yang cukup baik dengan skor MAPE sebesar 9,98% atau error prediksi yang dihasilkan oleh model sebesar 10%. Untuk melihat lebih jelas terkait performa model, kita dapat memvisualisasikan proses prediksi menggunakan fungsi `modeltime_forecast` dan `plot_modeltime_forecast`.
+
+```{r, warning=FALSE, message=FALSE}
+calibrate %>% 
+  modeltime_forecast(
+    actual_data = riders_monthly_tbl
+  ) %>% 
+  plot_modeltime_forecast(
+    .interactive = FALSE
+    )
+```
+
+Berdasarkan hasil visualisasi, model cukup baik untuk menangkap tren dan pola musiman yang ada pada data.
+
+### Visualisasi residu model
+
+Untuk memvisualisasikan residu dari model, terdapat dua buah tahapan yang perlu dilakukan.
+
+1. Menghitung residu model (kesalahan prediksi)
+2. Visualisasi residu menggunakan `plot_modeltime_residuals`
+
+```{r warning=FALSE, message=FALSE}
+modeltime_table(
+  prophet_model
+) %>% 
+  modeltime_calibrate(
+    new_data = testing(splits)
+  ) %>% 
+  modeltime_residuals() %>% 
+  plot_modeltime_residuals(
+    .type = "acf",
+    .show_white_noise_bars = TRUE,
+    .interactive = FALSE
+  )
+```
+
+Berdasarkan hasil visualisasi plot ACF/PACF masih terdapat nilai korelasi lag yang signifikan. Hal ini menunjukkan masih terdapat informasi yang dapat digali dari data. Solusi untuk mengatasi kondisi ini adalah dengan menambahkan fitur seperti lag pada model. Cara lain yang dapat digunakan adalah mengganti algoritma pemodelan yang digunakan dan melakukan tuning pada hyperparameter (diluar cakupan bahasan tutorial ini).
+
+### Refitting
+
+Proses refitting merupakan proses melatih model kembali menggunakan dataset utuhnya (bukan data test). Tujuannya adalah agar model dapat mengenali pola utuh atau jangka panjang dari data yang diinputkan.
+
+```{r message=FALSE}
+refit <- calibrate %>% 
+  modeltime_refit(
+    data = riders_monthly_tbl
+  )
+```
+
+## Forecast
+
+Untuk melakukan forecast nilai yang akan mendatang, kita dapat menggunakan fungsi `modeltime_forecast` dan menginputkan nilai forecast horizon (`h`) yang diinginkan.
+
+```{r message=FALSE, warning=FALSE}
+refit %>% 
+  modeltime_forecast(
+    h = "1 year",
+    actual_data = riders_monthly_tbl
+  ) %>% 
+  plot_modeltime_forecast(
+    .interactive = FALSE
+  )
+```
+
+## Referensi
+
+1. [Facebook Prophet](https://facebook.github.io/prophet/#:~:text=Prophet%20is%20a%20forecasting%20procedure%20implemented%20in%20R%20and%20Python.&text=Prophet%20is%20a%20procedure%20for,daily%20seasonality%2C%20plus%20holiday%20effects.)
+2. [Modeltime Documentation](https://business-science.github.io/modeltime/index.html)
+
+

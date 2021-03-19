@@ -1,0 +1,356 @@
+---
+title: Analisis Pengguna Sepeda Portland Oregon menggunakan Facebook Prophet - Part
+  2
+author: "Moh. Rosidi"
+date: "3/19/2021"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Pendahuluan
+
+Pada tutorial terdahulu kita sudah belajar cara membuat model prophet untuk melakukan forecasting pada dataset pengguna sepeda bulanan di Portland Oregon. Hasil analisis residual menunjukkan bahwa model masih dapat ditingkatkan akurasinya yang ditunjukkan masih adanya autokorelasi (korelasi dengan nilai masa lalu). Pada tutorial kali ini, kita akan menambahkan fitur regressor eksternal dalam proses pemodelan dengan menyertakan fitur lag pada model. 
+
+Permasalahan yang muncul saat model menyertakan regressor eksternal adalah kita perlu menyediakan nilai masa mendatang dari eksternal regressor tersebut saat kita akan melakukan proses forecasting. Permasalahan tersebut dapat diatasi dengan menerapkan metode rekursif pada proses forecasting. Proses ini melibatkan dua buah proses
+
+1. menyiapkan nilai regressor eksternal dimasa mendatang (forecasting, lag, dll)
+2. melakukan forecasting dengan melibatkan nilai regressor eksternal yang baru
+
+Untuk membantu proses pembuatan model rekursif kita akan menggunakan fungsi `recursive` yang disediakan package `modeltime` dalam tutorial ini.
+
+## Packages yang dibutuhkan
+
+Terdapat beberapa R packages yang dibutuhkan dalam tutorial kali ini. Beberapa packages yang dibutuhkan antara lain:
+
+1. `tidyverse` : meta packages yang berisi fungsi untuk melakukan workflow data science
+2. `tidymodels` : meta packages untuk membuat model prediktif dengan prisip tidy data
+3. `modeltime` : ekstensi `tidymodels` untuk model time series
+4. `timetk` : manipulasi data untuk jenis data berupa tanggal atau waktu
+
+```{r, eval=FALSE}
+# tidak perlu dijalankan jika sudah terinstall
+packages <- c("tidyverse", "tidymodels", "modeltime", "timetk")
+install.packages(packages)
+```
+
+```{r, message=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(timetk)
+library(modeltime)
+```
+
+## Membaca data
+
+## Membaca data
+
+Untuk membaca data dengan format `.csv`, kita dapat menggunakan fungsi `read_csv` dari packages `readr`.
+
+```{r}
+data <- read_csv("data/portland-oregon-average-monthly-.csv")
+```
+
+Untuk mengecek struktur data seperti jumlah kolom dan baris serta tipe data, kita dapat menggunakan fungsi `glimpse` dari package `dplyr`.
+
+```{r}
+# cek struktur data
+glimpse(data)
+```
+
+Berdasarkan output yang dihasilkan, data memerlukan proses pembersihan. Pembersihan dilakukan dengan 
+
+1. membuang baris terakhir data, 
+2. mengubah jenis data pada masing-masing kolom, dan 
+3. mengubah nama kolom kedua.
+
+```{r}
+riders_monthly_tbl <- data %>% 
+                      # membuang baris terakhir
+                      slice(-nrow(data)) %>% 
+                      
+                      # mengubah nama kolom
+                      rename(n_riders = `Portland Oregon average monthly bus ridership (/100) January 1973 through June 1982, n=114`,
+                             date = Month) %>% 
+                      
+                      # mengubah jenis data
+                      mutate(date = lubridate::ym(date),
+                            n_riders = as.numeric(n_riders)
+                            )
+```
+
+```{r}
+glimpse(riders_monthly_tbl)
+```
+
+## Penyiapan data untuk pemodelan
+
+Pada tahapan ini, kita akan menyiapkan fitur lag sebagai regressor eksternal pada data. Sebelum proses tersebut dilakukan, kita akan menentukan terlebih dahulu jumlah lag yang akan digunakan sebagai fitur baru. Terdapat beberapa pendekatan yang dapat digunakan untuk membuat fitur lag
+
+1.lag berdasarkan forecast horizon yang akan digunakan
+2. nilai korelasi signifikan pada kurva PACF
+
+Pada tutorial kali ini, kita akan menggunakan pendekatan kedua agar jumlah fitur yang ditambahkan tidak banyak.
+
+Untuk membuat kurva ACF/PACF, kita dapat menggunakan fungsi `plot_acaf_diagnostics`.
+
+```{r message=FALSE, warning=FALSE}
+riders_monthly_tbl %>% 
+  plot_acf_diagnostics(
+    .date_var = date,
+    .value    = n_riders,
+    .show_white_noise_bars = TRUE,
+    .interactive = FALSE
+  )
+```
+
+Pada hasil yang diperoleh dapat dilihat bahwa terdapat dua buah nilai PACF yang signifikan, yaitu: lag 1 dan lag 12. Pada tutorial ini akan digunakan fitur lag 1 sebagai regressor eksternal tambahan. Pembaca dapat menambahkan fitur lag 12 juga sebagai fitur regressor eksternal dan membandingkan hasilnya dengan model lainnya.
+
+
+
+Penyiapan data lainnya yang perlu dilakukan adalah membagi data menjadi data training dan data testing.
+
+```{r}
+splits <- riders_monthly_tbl %>% 
+  time_series_split(
+    date_var = date,
+    assess = "1 year",
+    cumulative = TRUE
+  )
+```
+
+Untuk memvisualisasikan data hasil splitting, jalankan perintah berikut:
+
+```{r}
+splits %>% 
+  tk_time_series_cv_plan() %>% 
+  plot_time_series_cv_plan(
+    .date_var = date,
+    .value = n_riders,
+    .interactive = FALSE
+  )
+```
+
+Tahapan terakhir yang perlu dilakukan adalah menambahkan observasi baru (melakukan ekstensi data) pada data yang nanti akan digunakan pada pembuatan future frame yang akan menjadi input pada proses forecasting.
+
+```{r}
+# forecast horizon 1 tahun
+FORECAST_HORIZON <- 12
+
+riders_monthly_tbl_extend <- riders_monthly_tbl %>%
+    future_frame(
+        .length_out = FORECAST_HORIZON,
+        .bind_data  = TRUE
+    ) 
+
+tail(riders_monthly_tbl_extend, 13)
+```
+
+
+## Pemodelan
+
+Pada tahapan pemodelan kita akan menyiapkan sebuah workflow untuk model rekursif. Workflow yang disiapkan akan memiliki dua buah bagian
+
+1. spesifikasi transformasi data
+2. spesifikasi model
+
+Spesifikasi transformasi data akan menggunakan fungsi `recipe` dan sejumlah fungsi `step_*` (`*` tahapan transformasi) dari package `tidymodels`. Sedangkan untuk pemodelan akan sama dengan proses pemodelan pada artikel sebelumnya.
+
+### Pembuatan step transformasi data
+
+Untuk menambahkan lag pada data, kita dapat menggunakan fungsi `step_lag`.
+
+```{r}
+prophet_recipe <- recipe(n_riders ~ ., data = riders_monthly_tbl_extend) %>% 
+  step_lag(n_riders, lag = 1)
+
+prophet_recipe
+```
+
+Proses tersebut hanya membuat sebuah *blueprint* tahapan transformasi. Untuk menerapkan *blueprint* transformasi pada data, jalankan perintah berikut:
+
+```{r}
+riders_monthly_tbl_lag <- prophet_recipe %>% prep() %>% juice()
+
+# full data
+full <- riders_monthly_tbl_lag %>% 
+  filter(!is.na(n_riders)) %>% 
+  drop_na()
+
+# future data
+future <- riders_monthly_tbl_lag %>% 
+  filter(is.na(n_riders))
+
+# training data
+train <- prophet_recipe %>% 
+  prep() %>% 
+  bake(new_data = training(splits)) %>% 
+  # buang baris dengan missing value
+  drop_na()
+
+# testing data
+test <- prophet_recipe %>% 
+  prep() %>% 
+  bake(new_data = testing(splits)) %>% 
+  # buang baris dengan missing value
+  drop_na()
+  
+```
+
+Terdapat dua model yang akan dibuat dalam tahapan ini, yaitu:
+
+1. prophet model
+2. prophet rekursif
+
+```{r}
+prophet_model <- prophet_reg() %>% 
+  set_engine("prophet") %>% 
+  fit(
+    n_riders ~ date,
+    data = train
+  )
+
+prophet_model
+```
+
+```{r}
+prophet_model_recursive <- prophet_reg() %>% 
+  set_engine("prophet") %>% 
+  fit(
+    n_riders ~ .,
+    data = train
+  ) 
+
+prophet_model_recursive
+```
+
+## Pengujian model
+
+Proses kalibrasi model dapat dilakukan menggunakan tahapan perintah berikut:
+
+```{r}
+calibrate <- modeltime_table(
+  prophet_model,
+  prophet_model_recursive
+) %>% 
+  modeltime_calibrate(
+    new_data = test
+  )
+
+calibrate
+```
+
+Terdapat dua buat tahapan yang dilakukan pada proses tersebut:
+
+1. membuat objek modeltime table menggunakan fungsi `modeltime_table`. Output dari proses ini adalah daftar model yang telah dibuat.
+2. menambahkan data uji pada tabel menggunakan fungsi `modeltime_calibrate`.
+
+Tahapan selanjutnya adalah membuat forecast dan mengecek akurasinya menggunakan fungsi `modeltime_forecast`.
+
+```{r}
+# cek akurasi model
+calibrate %>% 
+  modeltime_accuracy()
+```
+
+Berdasarkan output yang dihasilkan, model dengan regressor eksternal menghasilkan nilai MAPE 5 kali lebih kecil dibandingkan model tanpa tambahan fitur regressor eksternal. Untuk memvisualisasikan hasil forecast, jalankan perintah berikut:
+
+```{r, warning=FALSE, message=FALSE}
+calibrate %>% 
+  modeltime_forecast(
+    new_data = test,
+    actual_data = full
+  ) %>% 
+  plot_modeltime_forecast(
+    .interactive = FALSE
+    )
+```
+
+Berdasarkan hasil visualisasi, model dengan regressor eksternal menangkap variasi nilai pada data dengan cukup baik dibandingkan model tanpa regressor eksternal.
+
+### Visualisasi residu model
+
+Untuk memvisualisasikan residu dari model, terdapat dua buah tahapan yang perlu dilakukan.
+
+1. Menghitung residu model (kesalahan prediksi)
+2. Visualisasi residu menggunakan `plot_modeltime_residuals`
+
+```{r warning=FALSE, message=FALSE}
+modeltime_table(
+  prophet_model_recursive
+) %>% 
+  modeltime_calibrate(
+    new_data = test
+  ) %>% 
+  modeltime_residuals() %>% 
+  plot_modeltime_residuals(
+    .type = "acf",
+    .show_white_noise_bars = TRUE,
+    .interactive = FALSE
+  )
+```
+
+Berdasarkan hasil visualisasi plot ACF/PACF, model prophet dengan regressor eksternal telah mampu menangkap seluruh informasi yang terdapat pada data yang ditunjukkan dengan tidak ada nilai autokorelasi yang signifikan pada data (data menjadi white noise).
+
+### Refitting
+
+Proses refitting merupakan proses melatih model kembali menggunakan dataset utuhnya (bukan data test). Tujuannya adalah agar model dapat mengenali pola utuh atau jangka panjang dari data yang diinputkan. Pada tahapan ini, model dengan regressor eksternal perlu di refitting secara terpisah dari model yang sudah ada sebelumnya. 
+
+```{r}
+update_prophet_model_recursive <- prophet_reg() %>%
+  set_engine("prophet") %>% 
+  fit(
+    n_riders ~.,
+    data = full
+  ) %>% 
+  recursive(
+    transform = prophet_recipe,
+    train_tail = tail(full, 1)
+  )
+```
+
+Proses refitting dan update selanjutnya dilakukan dengan perintah berikut:
+
+```{r message=FALSE}
+refit <- calibrate %>%
+  modeltime_refit(
+    data = full
+  ) %>% 
+  update_modeltime_model(
+    .model_id = 2,
+    .new_model = update_prophet_model_recursive
+  ) 
+```
+
+## Forecast
+
+Untuk melakukan forecast nilai yang akan mendatang, kita dapat memberikan input berupa future frame pada model.
+
+```{r message=FALSE, warning=FALSE}
+refit %>% 
+  modeltime_forecast(
+    new_data = future,
+    actual_data = riders_monthly_tbl,
+    keep_data = TRUE
+  ) %>% 
+  plot_modeltime_forecast(
+    .interactive = FALSE
+  )
+```
+
+Hasil forecasting menunjukkan nilai yang seragam pada dua buah model tersebut. Hal ini terjadi karena kedua model telah memperoleh seluruh informasi trend jangka panjang dari data melalui proses reffitting.
+
+## Referensi
+
+1. [Facebook Prophet](https://facebook.github.io/prophet/#:~:text=Prophet%20is%20a%20forecasting%20procedure%20implemented%20in%20R%20and%20Python.&text=Prophet%20is%20a%20procedure%20for,daily%20seasonality%2C%20plus%20holiday%20effects.)
+2. [Modeltime Documentation](https://business-science.github.io/modeltime/index.html)
+
+
+
+
+
+

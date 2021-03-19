@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/739100/3daec863a6254ed89537369c13b538a0
+bundleId: https://api.rpubs.com/api/v1/document/739100/3daec863a6254ed89537369c13b538a0
+url: http://rpubs.com/rosidimoh/739100
+when: 1616161064.38462

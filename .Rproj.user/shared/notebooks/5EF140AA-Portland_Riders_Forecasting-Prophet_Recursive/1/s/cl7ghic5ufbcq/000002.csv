@@ -1,0 +1,14 @@
+"0","update_prophet_model_recursive <- prophet_reg() %>%"
+"0","  set_engine(""prophet"") %>% "
+"0","  fit("
+"0","    n_riders ~.,"
+"0","    data = full"
+"0","  ) %>% "
+"0","  recursive("
+"0","    transform = prophet_recipe,"
+"0","    train_tail = tail(full, 1)"
+"0","  )"
+"2","Disabling weekly seasonality. Run prophet with weekly.seasonality=TRUE to override this.
+"
+"2","Disabling daily seasonality. Run prophet with daily.seasonality=TRUE to override this.
+"

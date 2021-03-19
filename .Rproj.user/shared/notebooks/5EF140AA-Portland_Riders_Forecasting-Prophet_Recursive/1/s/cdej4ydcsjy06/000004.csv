@@ -1,0 +1,7 @@
+"0","riders_monthly_tbl %>% "
+"0","  plot_acf_diagnostics("
+"0","    .date_var = date,"
+"0","    .value    = n_riders,"
+"0","    .show_white_noise_bars = TRUE,"
+"0","    .interactive = FALSE"
+"0","  )"

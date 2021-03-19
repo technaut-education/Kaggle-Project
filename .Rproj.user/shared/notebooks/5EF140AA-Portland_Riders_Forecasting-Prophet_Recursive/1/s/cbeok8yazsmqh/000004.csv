@@ -1,0 +1,7 @@
+"0","splits %>% "
+"0","  tk_time_series_cv_plan() %>% "
+"0","  plot_time_series_cv_plan("
+"0","    .date_var = date,"
+"0","    .value = n_riders,"
+"0","    .interactive = FALSE"
+"0","  )"

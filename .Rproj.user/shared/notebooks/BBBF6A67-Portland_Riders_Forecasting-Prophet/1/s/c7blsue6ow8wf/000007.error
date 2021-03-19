@@ -1,0 +1,1 @@
+{"frames":[{"func":"riders_monthly_tbl %>% plot_seasonal_diagnostics(.date_var = Month, \n    .value = N_riders, .interactive = FALSE, .nrow = 1)","file":"","line_number":0,"end_line_number":0,"character_number":0,"end_character_number":0}],"message":"Error in plot_seasonal_diagnostics(., .date_var = Month, .value = N_riders,  : \n  unused argument (.nrow = 1)\n"}

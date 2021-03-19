@@ -1,0 +1,11 @@
+"0","# forecast horizon 1 tahun"
+"0","FORECAST_HORIZON <- 12"
+"0",""
+"0","riders_monthly_tbl_extend <- riders_monthly_tbl %>%"
+"0","    future_frame("
+"0","        .length_out = FORECAST_HORIZON,"
+"0","        .bind_data  = TRUE"
+"0","    ) "
+"2",".date_var is missing. Using: date
+"
+"0","tail(riders_monthly_tbl_extend, 13)"

@@ -1,0 +1,10 @@
+"0","prophet_recipe <- recipe(n_riders ~ ., data = riders_monthly_tbl_extend) %>% "
+"0","  step_lag(n_riders, lag = 1)"
+"0",""
+"0","prophet_recipe"
+"1","Data Recipe
+
+"
+"1","Inputs:
+
+"

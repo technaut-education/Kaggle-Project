@@ -1,0 +1,10 @@
+"0","riders_monthly_tbl %>% "
+"0","  pad_by_time("
+"0","    .date_var = Month,"
+"0","    .start_date = ""1960-01-01"""
+"0","  )"
+"2","The `.dots` argument of `group_by()` is deprecated as of dplyr 1.0.0.
+[90mThis warning is displayed once every 8 hours.[39m
+[90mCall `lifecycle::last_warnings()` to see where this warning was generated.[39m"
+"2","pad applied on the interval: month
+"
