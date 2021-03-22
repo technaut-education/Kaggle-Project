@@ -1,0 +1,4 @@
+"0","stackoverflow_monthly_tbl <- data %>% "
+"0","  rename(date = month) %>% "
+"0","  mutate(date = lubridate::ym(date)) %>% "
+"0","  pivot_longer(-date, names_to = ""library"", values_to = ""value"")"

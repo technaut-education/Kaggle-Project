@@ -1,0 +1,11 @@
+---
+title: "Prediksi Jumlah Pertanyaan pada Sistus StackOverflow-Part 2"
+author: "Moh. Rosidi"
+date: "3/22/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+

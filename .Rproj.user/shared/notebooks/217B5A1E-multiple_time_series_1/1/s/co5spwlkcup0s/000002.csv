@@ -1,0 +1,190 @@
+"0","model_table <- data_nested %>% "
+"0","  "
+"0","  # iterasi pembentukan model untuk tiap baris data_nested"
+"0","  mutate(fitted_model = map(nested_column,"
+"0","                            .f = function(df){"
+"0","          arima_reg() %>%"
+"0","            set_engine(""auto_arima"") %>%"
+"0","            fit(value ~ date, data = df) "
+"0","                            }"
+"0","                              )"
+"0","         ) %>% "
+"0","  "
+"0","  # iterasi forecasting dengan input model"
+"0","  # forecast horizon = 12 (12 bulan)"
+"0","  mutate(nested_forecast = map2(fitted_model, nested_column,"
+"0","                                  .f = function(arima_model, df){"
+"0",""
+"0","        modeltime_table("
+"0","            arima_model"
+"0","        ) %>%"
+"0","            modeltime_forecast("
+"0","                h = 12,"
+"0","                actual_data = df)"
+"0","                           }"
+"0","                             )"
+"0","        )"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"2","frequency = 12 observations per 1 year
+"
+"0","# cetak hasil pemodelan dan forecasting"
+"0","model_table"

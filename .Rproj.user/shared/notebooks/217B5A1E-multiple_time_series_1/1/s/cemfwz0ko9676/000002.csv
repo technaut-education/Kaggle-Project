@@ -1,0 +1,4 @@
+"0","data_nested <- stackoverflow_monthly_tbl %>% "
+"0","  nest(nested_column = -library)"
+"0",""
+"0","data_nested"

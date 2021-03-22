@@ -1,0 +1,12 @@
+"0","data <- read_csv(""data/MLTollsStackOverflow.csv"")"
+"2","Duplicated column names deduplicated: 'matlab' => 'matlab_1' [52], 'stanford-nlp' => 'stanford-nlp_1' [76]"
+"2","
+[36m--[39m [1m[1mColumn specification[1m[22m [36m-------------------------------------------------------[39m
+cols(
+  .default = col_double(),
+  month = [31mcol_character()[39m
+)
+[36mi[39m Use [38;5;235m[48;5;253m[38;5;235m[48;5;253m`spec()`[48;5;253m[38;5;235m[49m[39m for the full column specifications.
+
+"
+"0","data"
